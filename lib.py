@@ -1,6 +1,7 @@
 from pathlib import Path
 import svgwrite
 import os
+import base64
 import cairosvg
 import random
 import textwrap
@@ -473,7 +474,8 @@ def crime_image_path(crime: str) -> str:
         "plant": "plant.webp",
     }[crime]
 
-    return "file://" + os.path.abspath(f"images/{img_path}")
+    # Return just the absolute path without file:// prefix
+    return os.path.abspath(f"images/{img_path}")
 
 
 def crime_title(crime: str) -> str:
@@ -495,6 +497,13 @@ def save_puzzle_img(clues: List[Clue], crime: str, save_dir: str):
     svg_path = Path(save_dir) / "puzzle.svg"
     png_path = Path(save_dir) / "puzzle.png"
 
+    # Read the image file and convert to base64
+    with open(img_path, 'rb') as img_file:
+        img_data = img_file.read()
+        img_base64 = base64.b64encode(img_data).decode('utf-8')
+        # Use correct MIME type for WebP images
+        img_data_uri = f'data:image/webp;base64,{img_base64}'
+
     dwg = svgwrite.Drawing(svg_path, size=('300px', '400px'))
     
     dwg.add(dwg.rect(insert=(0, 0), size=('100%', '100%'), rx=10, ry=10, fill='black'))
@@ -509,7 +518,7 @@ def save_puzzle_img(clues: List[Clue], crime: str, save_dir: str):
     clip_path.add(dwg.circle(center=(260, 40), r=25))
     
     image_group = dwg.g(clip_path='url(#circleClip)')
-    image_group.add(dwg.image(href=img_path, insert=(235, 15), size=(50, 50)))
+    image_group.add(dwg.image(href=img_data_uri, insert=(235, 15), size=(50, 50)))
     dwg.add(image_group)
     dwg.add(dwg.circle(center=(260, 40), r=25, fill='none', stroke='black', stroke_width=2))
     
@@ -521,7 +530,10 @@ def save_puzzle_img(clues: List[Clue], crime: str, save_dir: str):
             y += 20
 
     dwg.save()
-    cairosvg.svg2png(url=str(svg_path), write_to=str(png_path), scale=2, unsafe=True)
+
+    # Convert using file object instead of URL
+    with open(svg_path, 'rb') as svg_file:
+        cairosvg.svg2png(file_obj=svg_file, write_to=str(png_path), scale=2, unsafe=True)
 
 
 
